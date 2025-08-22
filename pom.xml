@@ -36,6 +36,7 @@
         <docker.dbs>${vitess.image}</docker.dbs>
         <docker.filter>${docker.dbs}</docker.filter>
 
+        <grpc.version>1.56.1</grpc.version>
         <!-- Apicurion container properties -->
         <apicurio.port>8080</apicurio.port>
         <apicurio.init.timeout>60000</apicurio.init.timeout> <!-- 60 seconds -->
@@ -161,9 +162,26 @@
                 <type>test-jar</type>
                 <scope>test</scope>
             </dependency>
+
+            <dependency>
+                <groupId>io.debezium</groupId>
+                <artifactId>debezium-storage-file</artifactId>
+                <version>${version.debezium}</version>
+                <type>test-jar</type>
+                <scope>test</scope>
+            </dependency>
+
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-embedded</artifactId>
+                <version>${version.debezium}</version>
+                <type>test-jar</type>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.debezium</groupId>
+                <artifactId>debezium-connector-mysql</artifactId>
                 <version>${version.debezium}</version>
                 <type>test-jar</type>
                 <scope>test</scope>
@@ -172,6 +190,31 @@
     </dependencyManagement>
 
     <dependencies>
+        <!-- SQL Parser -->
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>4.7</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-storage-file</artifactId>
+            <version>${version.debezium}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-storage-kafka</artifactId>
+            <version>${version.debezium}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-connector-mysql</artifactId>
+            <version>${version.debezium}</version>
+        </dependency>
+
         <!-- Kafka-->
         <dependency>
             <groupId>org.apache.kafka</groupId>
@@ -224,6 +267,57 @@
                     <artifactId>log4j-api</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <!-- Required for gRPC -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-api</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-core</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-stub</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-context</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-protobuf</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-googleapis</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-xds</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-rls</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>3.25.3</version>
         </dependency>
         <!-- Building -->
         <dependency>
@@ -425,6 +519,49 @@
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>io.confluent</groupId>
+                <version>0.12.0</version>
+                <artifactId>kafka-connect-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>kafka-connect</goal>
+                        </goals>
+                        <configuration>
+                            <ownerUsername>planetscale</ownerUsername>
+                            <componentTypes>
+                                <componentType>source</componentType>
+                            </componentTypes>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.codehaus.plexus</groupId>
+                        <artifactId>plexus-archiver</artifactId>
+                        <version>3.4</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+            <plugin>
+                <groupId>pl.project13.maven</groupId>
+                <artifactId>git-commit-id-plugin</artifactId>
+                <version>4.9.10</version>
+                <executions>
+                    <execution>
+                        <id>get-the-git-infos</id>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                        <phase>validate</phase>
+                    </execution>
+                </executions>
+                <configuration>
+                    <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
+                </configuration>
+            </plugin>
         </plugins>
 
         <resources>
@@ -480,9 +617,26 @@
                                 </goals>
                                 <configuration>
                                     <finalName>${project.artifactId}-${project.version}</finalName>
+                                    <appendAssemblyId>false</appendAssemblyId>
                                     <attach>true</attach>  <!-- we want attach & deploy these to Maven -->
                                     <descriptorRefs>
                                         <descriptorRef>connector-distribution</descriptorRef>
+                                    </descriptorRefs>
+                                    <tarLongFileMode>posix</tarLongFileMode>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>jar-with-dependencies</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <configuration>
+                                    <finalName>${project.artifactId}-${project.version}</finalName>
+                                    <appendAssemblyId>true</appendAssemblyId>
+                                    <attach>true</attach>  <!-- we want attach & deploy these to Maven -->
+                                    <descriptorRefs>
+                                        <descriptorRef>jar-with-dependencies</descriptorRef>
                                     </descriptorRefs>
                                     <tarLongFileMode>posix</tarLongFileMode>
                                 </configuration>
