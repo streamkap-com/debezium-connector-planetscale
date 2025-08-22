@@ -18,6 +18,7 @@ import io.debezium.connector.planetscale.connection.ReplicationMessage;
 import io.debezium.connector.planetscale.connection.ReplicationMessageProcessor;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.EventDispatcher;
+import io.debezium.pipeline.EventDispatcher.SnapshotReceiver;
 import io.debezium.pipeline.source.spi.StreamingChangeEventSource;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -57,7 +58,6 @@ public class VitessStreamingChangeEventSource
         this.connectorConfig = connectorConfig;
         this.replicationConnection = replicationConnection;
         this.pauseNoMessage = DelayStrategy.constant(connectorConfig.getPollInterval());
-
         LOGGER.info("VitessStreamingChangeEventSource is created");
     }
 
@@ -78,16 +78,18 @@ public class VitessStreamingChangeEventSource
         }
 
         try {
-            AtomicReference<Throwable> error = new AtomicReference<>();
-            replicationConnection.startStreaming(
-                    offsetContext, newReplicationMessageProcessor(partition, offsetContext), error);
+            if (connectorConfig.getSnapshotMode() != SnapshotMode.INITIAL_ONLY || !offsetContext.isSnapshotCompleted()) {
+                AtomicReference<Throwable> error = new AtomicReference<>();
+                replicationConnection.startStreaming(
+                        offsetContext, newReplicationMessageProcessor(partition, offsetContext), error);
 
-            while (context.isRunning() && error.get() == null) {
-                pauseNoMessage.sleepWhen(true);
-            }
-            if (error.get() != null) {
-                LOGGER.error("Error during streaming", error.get());
-                throw error.get();
+                while (context.isRunning() && error.get() == null) {
+                    pauseNoMessage.sleepWhen(true);
+                }
+                if (error.get() != null) {
+                    LOGGER.error("Error during streaming", error.get());
+                    throw error.get();
+                }
             }
         }
         catch (Throwable e) {
@@ -112,6 +114,7 @@ public class VitessStreamingChangeEventSource
 
     private ReplicationMessageProcessor newReplicationMessageProcessor(VitessPartition partition,
                                                                        VitessOffsetContext offsetContext) {
+        SnapshotReceiver<VitessPartition> receiver = dispatcher.getSnapshotChangeEventReceiver();
         return (message, newVgtid, isLastRowOfTransaction) -> {
             if (message.isTransactionalMessage()) {
                 // Tx BEGIN/END event
@@ -154,6 +157,14 @@ public class VitessStreamingChangeEventSource
                         new VitessDDLEmitter(
                                 partition, offsetContext, connectorConfig.ddlFilter(), schema, message));
             }
+            else if (message.getOperation() == ReplicationMessage.Operation.COPY_COMPLETED) {
+                LOGGER.debug("processing COPY_COMPLETED operation by completing snapshot");
+                offsetContext.rotateVgtid(newVgtid, message.getCommitTime());
+                offsetContext.setShard("-");
+                offsetContext.preSnapshotCompletion();
+                receiver.completeSnapshot();
+                offsetContext.postSnapshotCompletion();
+            }
             else {
                 // DML event
                 TableId tableId = VitessDatabaseSchema.parse(message.getTable());
@@ -167,11 +178,20 @@ public class VitessStreamingChangeEventSource
                     offsetContext.resetVgtid(newVgtid, message.getCommitTime());
                 }
 
-                dispatcher.dispatchDataChangeEvent(
-                        partition,
-                        tableId,
-                        new VitessChangeRecordEmitter(
-                                partition, offsetContext, clock, connectorConfig, schema, message));
+                if (offsetContext.isSnapshotRunning()) {
+                    dispatcher.dispatchSnapshotEvent(partition,
+                            tableId,
+                            new VitessSnapshotRecordEmitter(
+                                    partition, offsetContext, clock, connectorConfig, schema, message),
+                            receiver);
+                }
+                else {
+                    dispatcher.dispatchDataChangeEvent(
+                            partition,
+                            tableId,
+                            new VitessChangeRecordEmitter(
+                                    partition, offsetContext, clock, connectorConfig, schema, message));
+                }
             }
         };
     }

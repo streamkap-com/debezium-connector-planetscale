@@ -20,7 +20,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
-import io.debezium.connector.SnapshotRecord;
 import io.debezium.connector.planetscale.VStreamCopyCompletedEventException;
 import io.debezium.connector.planetscale.Vgtid;
 import io.debezium.connector.planetscale.VitessConnector;
@@ -117,13 +116,7 @@ public class VitessReplicationConnection implements ReplicationConnection {
             stub = MetadataUtils.attachHeaders(stub, metadata);
         }
 
-        final Instant startedSnapshotAt;
-        if (config.getSnapshotMode() == SnapshotMode.INITIAL_ONLY) {
-            startedSnapshotAt = VitessConnector.getCurrentTimestamp(config);
-        }
-        else {
-            startedSnapshotAt = null;
-        }
+        final Instant startedSnapshotAt = VitessConnector.getCurrentTimestamp(config);
 
         StreamObserver<Vtgate.VStreamResponse> responseObserver = new ClientResponseObserver<Vtgate.VStreamRequest, Vtgate.VStreamResponse>() {
             private ClientCallStreamObserver<VStreamRequest> requestStream;
@@ -209,19 +202,14 @@ public class VitessReplicationConnection implements ReplicationConnection {
                             commitEventSeen = true;
                             break;
                         case COPY_COMPLETED:
-                            // After all shards are copied, Vitess will send a final COPY_COMPLETED event.
-                            // See:
-                            // https://github.com/vitessio/vitess/blob/v19.0.0/go/vt/vtgate/vstream_manager.go#L791-L808
                             if (event.getKeyspace() == "" && event.getShard() == "") {
                                 LOGGER.info("Received COPY_COMPLETED event for all keyspaces and shards");
-                                offsetContext.markSnapshotRecord(SnapshotRecord.FALSE);
                                 copyCompletedEventSeen = true;
                             }
                             else {
                                 LOGGER.info("Received COPY_COMPLETED event for keyspace {} and shard {}",
                                         event.getKeyspace(), event.getShard());
                             }
-                            continue;
                         case DDL:
                         case OTHER:
                             // If receiving DDL and OTHER, process them immediately to rotate vgtid in
@@ -234,6 +222,9 @@ public class VitessReplicationConnection implements ReplicationConnection {
                             break;
                     }
                     bufferedEvents.add(event);
+                    if (config.getSnapshotMode() == SnapshotMode.INITIAL_ONLY && copyCompletedEventSeen) {
+                        break;
+                    }
                 }
 
                 numResponses++;
@@ -285,11 +276,9 @@ public class VitessReplicationConnection implements ReplicationConnection {
                 }
 
                 if (copyCompletedEventSeen) {
-                    LOGGER.info("Received COPY_COMPLETED event for all keyspaces and shards");
                     if (config.getSnapshotMode() == SnapshotMode.INITIAL_ONLY) {
-                        LOGGER.info("Cancel the copy operation after receiving COPY_COMPLETED event");
-                        requestStream.cancel("Cancel the copy operation after receiving COPY_COMPLETED event",
-                                new VStreamCopyCompletedEventException());
+                        final String message = "COPY_COMPLETED event encountered during INITIAL_ONLY snapshot";
+                        requestStream.cancel(message, new VStreamCopyCompletedEventException(message));
                     }
                 }
             }

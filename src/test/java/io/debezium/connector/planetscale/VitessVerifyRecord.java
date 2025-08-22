@@ -29,6 +29,17 @@ public class VitessVerifyRecord extends VerifyRecord {
     }
 
     /**
+     * Verify that the given {@link SourceRecord} is a READ record, and that the key exists.
+     *
+     * @param record the source record; may not be null
+     * @param pkField the single field defining the primary key of the struct; may not be null
+     */
+    public static void isValidRead(SourceRecord record, String pkField) {
+        hasValidKey(record, pkField);
+        isValidRead(record);
+    }
+
+    /**
      * Verify that the given {@link SourceRecord} has a valid non-null integer key.
      *
      * @param record the source record; may not be null

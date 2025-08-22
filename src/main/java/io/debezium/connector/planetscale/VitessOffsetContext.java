@@ -11,8 +11,6 @@ import java.util.Map;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.debezium.connector.SnapshotRecord;
 import io.debezium.connector.planetscale.connection.VitessReplicationConnection;
@@ -31,8 +29,7 @@ import io.debezium.util.Clock;
  * ReplicationMessage.
  */
 public class VitessOffsetContext extends CommonOffsetContext<SourceInfo> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(VitessOffsetContext.class);
-    private static final String SNAPSHOT_COMPLETED_KEY = "snapshot_completed";
+    public static final String SNAPSHOT_COMPLETED_KEY = "snapshot_completed";
 
     private boolean snapshotCompleted;
     private final Schema sourceInfoSchema;
@@ -61,7 +58,6 @@ public class VitessOffsetContext extends CommonOffsetContext<SourceInfo> {
     /** Initialize VitessOffsetContext if no previous offset exists */
     public static VitessOffsetContext initialContext(
                                                      boolean snapshot, VitessConnectorConfig connectorConfig, Clock clock) {
-        LOGGER.info("No previous offset exists. Use default VGTID.");
         final Vgtid defaultVgtid = VitessReplicationConnection.defaultVgtid(connectorConfig);
         return new VitessOffsetContext(
                 snapshot, false, connectorConfig, defaultVgtid, clock.currentTimeAsInstant(), new TransactionContext());
@@ -102,6 +98,7 @@ public class VitessOffsetContext extends CommonOffsetContext<SourceInfo> {
             if (!snapshotCompleted) {
                 result.put(SourceInfo.SNAPSHOT_KEY, true);
             }
+            result.put(SNAPSHOT_COMPLETED_KEY, snapshotCompleted);
         }
         // put OFFSET_TRANSACTION_ID
         return transactionContext.store(result);
@@ -115,6 +112,10 @@ public class VitessOffsetContext extends CommonOffsetContext<SourceInfo> {
     @Override
     public boolean isSnapshotRunning() {
         return sourceInfo.isSnapshot() && !snapshotCompleted;
+    }
+
+    public boolean isSnapshotCompleted() {
+        return snapshotCompleted;
     }
 
     @Override

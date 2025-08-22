@@ -80,6 +80,9 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
             case COMMIT:
                 handleCommitMessage(vEvent, processor, newVgtid);
                 break;
+            case COPY_COMPLETED:
+                handleCopyCompleted(vEvent, processor, newVgtid);
+                break;
             case ROW:
                 decodeRows(vEvent, processor, newVgtid, isLastRowEventOfTransaction, isSnapshotRecord, snapshotStartedAt);
                 break;
@@ -206,6 +209,13 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
         LOGGER.trace("Commit timestamp of commit transaction: {}", commitTimestamp);
         processor.process(
                 new TransactionalMessage(Operation.COMMIT, transactionId, commitTimestamp), newVgtid, false);
+    }
+
+    private void handleCopyCompleted(
+                                     Binlogdata.VEvent vEvent, ReplicationMessageProcessor processor, Vgtid newVgtid)
+            throws InterruptedException {
+        this.commitTimestamp = Instant.ofEpochSecond(vEvent.getTimestamp());
+        processor.process(new CopyCompletedMessage(commitTimestamp), newVgtid, false);
     }
 
     private void decodeRows(

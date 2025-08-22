@@ -60,7 +60,7 @@ public class VitessReplicationConnectionIT {
         final VitessConnectorConfig conf = new VitessConnectorConfig(
                 TestHelper.defaultConfig(false, false, 1, -1, -1,
                         null, VitessConnectorConfig.SnapshotMode.NEVER, TestHelper.TEST_SHARD,
-                        "1", "skip").build());
+                        null, "skip").build());
         final VitessDatabaseSchema vitessDatabaseSchema = new VitessDatabaseSchema(
                 conf, SchemaNameAdjuster.create(), (TopicNamingStrategy) DefaultTopicNamingStrategy.create(conf));
 
@@ -88,6 +88,7 @@ public class VitessReplicationConnectionIT {
                         started.set(true);
                     }
                     consumedMessages.add(new MessageAndVgtid(message, vgtid));
+                    throw new InterruptedException("intentional test failure");
                 },
                 error);
         // Since we are using the "current" as the starting position, there is a race here
@@ -98,6 +99,7 @@ public class VitessReplicationConnectionIT {
                 .atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
                 .until(() -> error.get() != null);
         assertThat(error.get()).isNotNull();
+        assertThat(error.get()).hasMessage("intentional test failure");
     }
 
     @Test
@@ -107,7 +109,7 @@ public class VitessReplicationConnectionIT {
         final VitessConnectorConfig conf = new VitessConnectorConfig(
                 TestHelper.defaultConfig(false, false, 1, -1, -1,
                         null, VitessConnectorConfig.SnapshotMode.NEVER, TestHelper.TEST_SHARD,
-                        "1", "warn").build());
+                        null, "warn").build());
         final VitessDatabaseSchema vitessDatabaseSchema = new VitessDatabaseSchema(
                 conf, SchemaNameAdjuster.create(), (TopicNamingStrategy) DefaultTopicNamingStrategy.create(conf));
 
@@ -135,6 +137,7 @@ public class VitessReplicationConnectionIT {
                         started.set(true);
                     }
                     consumedMessages.add(new MessageAndVgtid(message, vgtid));
+                    throw new InterruptedException("intentional test failure");
                 },
                 error);
         // Since we are using the "current" as the starting position, there is a race here
@@ -145,6 +148,7 @@ public class VitessReplicationConnectionIT {
                 .atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
                 .until(() -> error.get() != null);
         assertThat(error.get()).isNotNull();
+        assertThat(error.get()).hasMessage("intentional test failure");
     }
 
     @Test
@@ -153,7 +157,7 @@ public class VitessReplicationConnectionIT {
         final VitessConnectorConfig conf = new VitessConnectorConfig(
                 TestHelper.defaultConfig(false, false, 1, -1, -1,
                         null, VitessConnectorConfig.SnapshotMode.NEVER, TestHelper.TEST_SHARD,
-                        "1", "fail").build());
+                        null, "fail").build());
         final VitessDatabaseSchema vitessDatabaseSchema = new VitessDatabaseSchema(
                 conf, SchemaNameAdjuster.create(), (TopicNamingStrategy) DefaultTopicNamingStrategy.create(conf));
 
@@ -181,6 +185,7 @@ public class VitessReplicationConnectionIT {
                         started.set(true);
                     }
                     consumedMessages.add(new MessageAndVgtid(message, vgtid));
+                    throw new InterruptedException("intentional test failure");
                 },
                 error);
         // Since we are using the "current" as the starting position, there is a race here
@@ -191,6 +196,7 @@ public class VitessReplicationConnectionIT {
                 .atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
                 .until(() -> error.get() != null);
         assertThat(error.get()).isNotNull();
+        assertThat(error.get()).hasMessage("intentional test failure");
     }
 
     @Test
@@ -199,7 +205,7 @@ public class VitessReplicationConnectionIT {
         final VitessConnectorConfig conf = new VitessConnectorConfig(
                 TestHelper.defaultConfig(false, false, 1, -1, -1,
                         null, VitessConnectorConfig.SnapshotMode.NEVER, TestHelper.TEST_SHARD,
-                        "1", null).build());
+                        null, null).build());
         conf.getEventProcessingFailureHandlingMode();
         final VitessDatabaseSchema vitessDatabaseSchema = new VitessDatabaseSchema(
                 conf, SchemaNameAdjuster.create(), (TopicNamingStrategy) DefaultTopicNamingStrategy.create(conf));
@@ -228,6 +234,7 @@ public class VitessReplicationConnectionIT {
                         started.set(true);
                     }
                     consumedMessages.add(new MessageAndVgtid(message, vgtid));
+                    throw new InterruptedException("intentional test failure");
                 },
                 error);
         // Since we are using the "current" as the starting position, there is a race here
@@ -238,6 +245,7 @@ public class VitessReplicationConnectionIT {
                 .atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
                 .until(() -> error.get() != null);
         assertThat(error.get()).isNotNull();
+        assertThat(error.get()).hasMessage("intentional test failure");
     }
 
     @Test

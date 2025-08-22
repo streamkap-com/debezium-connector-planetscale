@@ -890,7 +890,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         int expectedRecordsCount = 1;
         consumer = testConsumer(expectedRecordsCount);
         consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
-        SourceRecord record = assertRecordInserted(topicNameFromInsertStmt(INSERT_NUMERIC_TYPES_STMT), TestHelper.PK_FIELD);
+        SourceRecord record = assertRecordRead(topicNameFromInsertStmt(INSERT_NUMERIC_TYPES_STMT), TestHelper.PK_FIELD);
         assertSourceInfo(record, TEST_SERVER, TEST_UNSHARDED_KEYSPACE, "numeric_table");
         assertRecordSchemaAndValues(schemasAndValuesForNumericTypes(), record, Envelope.FieldName.AFTER);
 
@@ -928,11 +928,12 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         int expectedRecordsCount = 1;
         consumer = testConsumer(expectedRecordsCount);
         consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
-        SourceRecord record = assertRecordInserted(topicNameFromInsertStmt(INSERT_NUMERIC_TYPES_STMT, TEST_SHARDED_KEYSPACE), TestHelper.PK_FIELD);
+        SourceRecord record = assertRecordRead(topicNameFromInsertStmt(INSERT_NUMERIC_TYPES_STMT, TEST_SHARDED_KEYSPACE), TestHelper.PK_FIELD);
         assertSourceInfo(record, TEST_SERVER, TEST_SHARDED_KEYSPACE, "numeric_table");
         assertRecordSchemaAndValues(schemasAndValuesForNumericTypes(), record, Envelope.FieldName.AFTER);
 
-        waitForCopyCompleted();
+        Boolean snapshotCompleted = (Boolean) record.sourceOffset().get(VitessOffsetContext.SNAPSHOT_COMPLETED_KEY);
+        assertThat(snapshotCompleted).isTrue();
 
         // We should receive additional record from numeric_table
         consumer.expects(expectedRecordsCount);
@@ -955,12 +956,13 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         int expectedRecordsCount = 1;
         consumer = testConsumer(expectedRecordsCount);
         consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
-        SourceRecord record = assertRecordInserted(topicNameFromInsertStmt(INSERT_NUMERIC_TYPES_STMT), TestHelper.PK_FIELD);
+        SourceRecord record = assertRecordRead(topicNameFromInsertStmt(INSERT_NUMERIC_TYPES_STMT), TestHelper.PK_FIELD);
         assertSourceInfo(record, TEST_SERVER, TEST_UNSHARDED_KEYSPACE, "numeric_table");
         assertRecordSchemaAndValues(schemasAndValuesForNumericTypes(), record, Envelope.FieldName.AFTER);
 
         // Restart the connector.
-        waitForCopyCompleted();
+        Boolean snapshotCompleted = (Boolean) record.sourceOffset().get(VitessOffsetContext.SNAPSHOT_COMPLETED_KEY);
+        assertThat(snapshotCompleted).isTrue();
         stopConnector();
         startConnector(Function.identity(), false, false, 1, -1, -1, null, null, null);
 
@@ -980,7 +982,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         int expectedRecordsCount = 1;
         consumer = testConsumer(expectedRecordsCount);
         consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
-        SourceRecord record = assertRecordInserted(topicNameFromInsertStmt(INSERT_NUMERIC_TYPES_STMT), TestHelper.PK_FIELD);
+        SourceRecord record = assertRecordRead(topicNameFromInsertStmt(INSERT_NUMERIC_TYPES_STMT), TestHelper.PK_FIELD);
         assertSourceInfo(record, TEST_SERVER, TEST_UNSHARDED_KEYSPACE, "numeric_table");
         assertRecordSchemaAndValues(schemasAndValuesForNumericTypes(), record, Envelope.FieldName.AFTER);
 
@@ -1028,7 +1030,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         consumer = testConsumer(expectedSnapshotRecordsCount, tableInclude);
         consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
 
-        assertRecordInserted(TEST_UNSHARDED_KEYSPACE + ".numeric_table", TestHelper.PK_FIELD);
+        assertRecordRead(TEST_UNSHARDED_KEYSPACE + ".numeric_table", TestHelper.PK_FIELD);
 
         // Add more rows.
         TestHelper.execute(insertRowsStatement);
@@ -1134,7 +1136,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         // The inserts must happen only after VStream is started with some buffer time.
         Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
                 .pollInterval(Duration.ofSeconds(1))
-                .until(() -> logInterceptor.containsMessage("Cancel the copy operation after receiving COPY_COMPLETED event"));
+                .until(() -> logInterceptor.containsMessage("COPY_COMPLETED event encountered during INITIAL_ONLY snapshot"));
     }
 
     private void waitForVStreamStarted(final LogInterceptor logInterceptor) {
@@ -1266,6 +1268,12 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         return assertRecordInserted(insertedRecord, expectedTopicName, pkField);
     }
 
+    private SourceRecord assertRecordRead(String expectedTopicName, String pkField) {
+        assertFalse("records not generated", consumer.isEmpty());
+        SourceRecord readRecord = consumer.remove();
+        return assertRecordRead(readRecord, expectedTopicName, pkField);
+    }
+
     private SourceRecord assertRecordUpdated() {
         assertFalse("records not generated", consumer.isEmpty());
         SourceRecord updatedRecord = consumer.remove();
@@ -1287,6 +1295,17 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
             VerifyRecord.isValidInsert(insertedRecord);
         }
         return insertedRecord;
+    }
+
+    private SourceRecord assertRecordRead(SourceRecord readRecord, String expectedTopicName, String pkField) {
+        assertEquals(topicName(expectedTopicName), readRecord.topic());
+        if (pkField != null) {
+            VitessVerifyRecord.isValidRead(readRecord, pkField);
+        }
+        else {
+            VerifyRecord.isValidRead(readRecord);
+        }
+        return readRecord;
     }
 
     private SourceRecord assertRecordUpdated(SourceRecord updatedRecord) {

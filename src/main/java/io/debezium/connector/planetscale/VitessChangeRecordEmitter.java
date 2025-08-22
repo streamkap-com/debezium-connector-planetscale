@@ -5,34 +5,25 @@
  */
 package io.debezium.connector.planetscale;
 
-import java.util.List;
 import java.util.Objects;
 
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.connector.planetscale.connection.ReplicationMessage;
 import io.debezium.data.Envelope;
 import io.debezium.pipeline.EventDispatcher;
-import io.debezium.relational.Column;
 import io.debezium.relational.RelationalChangeRecordEmitter;
-import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.TableSchema;
 import io.debezium.util.Clock;
-import io.debezium.util.Strings;
 
 /**
  * Used by {@link EventDispatcher} to get the {@link SourceRecord} {@link Struct} and pass it to a
  * {@link Receiver}, which in turn enqueue the {@link SourceRecord} to {@link ChangeEventQueue}.
  */
 class VitessChangeRecordEmitter extends RelationalChangeRecordEmitter<VitessPartition> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(VitessChangeRecordEmitter.class);
-
     private final ReplicationMessage message;
     private final VitessDatabaseSchema schema;
     private final VitessConnectorConfig connectorConfig;
@@ -79,7 +70,7 @@ class VitessChangeRecordEmitter extends RelationalChangeRecordEmitter<VitessPart
                 return null;
             default:
                 // UPDATE and DELETE have old values
-                return columnValues(message.getOldTupleList(), tableId);
+                return VitessChangeRecordUtil.columnValues(connectorConfig, schema, message.getOldTupleList(), tableId);
         }
     }
 
@@ -88,7 +79,7 @@ class VitessChangeRecordEmitter extends RelationalChangeRecordEmitter<VitessPart
         switch (getOperation()) {
             case CREATE:
             case UPDATE:
-                return columnValues(message.getNewTupleList(), tableId);
+                return VitessChangeRecordUtil.columnValues(connectorConfig, schema, message.getNewTupleList(), tableId);
             default:
                 // DELETE does not have new values
                 return null;
@@ -99,45 +90,5 @@ class VitessChangeRecordEmitter extends RelationalChangeRecordEmitter<VitessPart
     protected void emitTruncateRecord(Receiver receiver, TableSchema tableSchema) throws InterruptedException {
         Struct envelope = tableSchema.getEnvelopeSchema().truncate(getOffset().getSourceInfo(), getClock().currentTimeAsInstant());
         receiver.changeRecord(getPartition(), tableSchema, Envelope.Operation.TRUNCATE, null, envelope, getOffset(), null);
-    }
-
-    private Object[] columnValues(List<ReplicationMessage.Column> columns, TableId tableId) {
-        if (columns == null || columns.isEmpty()) {
-            return null;
-        }
-        final Table table = schema.tableFor(tableId);
-        Objects.requireNonNull(table);
-
-        Object[] values = new Object[columns.size()];
-        for (ReplicationMessage.Column column : columns) {
-            final String columnName = Strings.unquoteIdentifierPart(column.getName());
-            int position = getPosition(columnName, table, values.length);
-            if (position != -1) {
-                Object value = column.getValue(connectorConfig.includeUnknownDatatypes());
-                values[position] = value;
-            }
-            else {
-                LOGGER.error("Can not find position for {} in {}", columnName, table);
-            }
-        }
-        return values;
-    }
-
-    private int getPosition(String columnName, Table table, int maxPosition) {
-        final Column tableColumn = table.columnWithName(columnName);
-        if (tableColumn == null) {
-            LOGGER.warn(
-                    "Internal schema is out-of-sync with incoming decoder events; column {} will be omitted from the change event.",
-                    columnName);
-            return -1;
-        }
-        int position = tableColumn.position() - 1;
-        if (position < 0 || position >= maxPosition) {
-            LOGGER.warn(
-                    "Internal schema is out-of-sync with incoming decoder events; column {} will be omitted from the change event.",
-                    columnName);
-            return -1;
-        }
-        return position;
     }
 }

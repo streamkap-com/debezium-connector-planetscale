@@ -30,7 +30,8 @@ public interface ReplicationMessage {
         COMMIT,
         DDL,
         TRUNCATE,
-        OTHER
+        OTHER,
+        COPY_COMPLETED
     }
 
     /** A representation of column value delivered as a part of replication message */

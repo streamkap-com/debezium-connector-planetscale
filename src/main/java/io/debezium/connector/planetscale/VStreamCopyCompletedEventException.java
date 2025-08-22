@@ -6,7 +6,11 @@
 package io.debezium.connector.planetscale;
 
 /**
- * Used to signal that Debezium should not continue consuming the streaming event source after encountering a COPY_COMPLETED VEvent from the VStream and when snapshot.mode=initial_only.
+ * Used to signal that Debezium should not continue consuming the streaming
+ * event source once snapshot is completed and snapshot.mode=initial_only.
  */
 public class VStreamCopyCompletedEventException extends RuntimeException {
+    public VStreamCopyCompletedEventException(String message) {
+        super(message);
+    }
 }
