@@ -511,9 +511,9 @@ public class VitessReplicationConnection implements ReplicationConnection {
             if (config.getShard() == null || config.getShard().isEmpty()) {
                 // This case is not supported by the Vitess, so our workaround is to get all the
                 // shards from vtgate.
-                if (config.getGtid() == VitessConnectorConfig.EMPTY_GTID_LIST) {
+                if (config.getVgtid() == Vgtid.EMPTY_GTID) {
                     List<String> shards = VitessConnector.getVitessShards(config);
-                    List<String> gtids = Collections.nCopies(shards.size(), config.getGtid().get(0));
+                    List<String> gtids = Collections.nCopies(shards.size(), config.getVgtid());
                     vgtid = buildVgtid(config.getKeyspace(), shards, gtids);
                 }
                 else {
@@ -524,14 +524,19 @@ public class VitessReplicationConnection implements ReplicationConnection {
             }
             else {
                 List<String> shards = config.getShard();
-                List<String> gtids = config.getGtid();
-                if (gtids == VitessConnectorConfig.DEFAULT_GTID_LIST ||
-                        gtids == VitessConnectorConfig.EMPTY_GTID_LIST) {
-                    gtids = Collections.nCopies(shards.size(), gtids.get(0));
+                String vgtidString = config.getVgtid();
+                List<String> gtids = null;
+                if (vgtidString == Vgtid.CURRENT_GTID ||
+                        vgtidString == Vgtid.EMPTY_GTID) {
+                    gtids = Collections.nCopies(shards.size(), vgtidString);
+                    vgtid = buildVgtid(config.getKeyspace(), shards, gtids);
+                }
+                else {
+                    vgtid = Vgtid.of(vgtidString);
                 }
                 vgtid = buildVgtid(config.getKeyspace(), shards, gtids);
                 LOGGER.info("VGTID '{}' is set to the GTID {} for keyspace: {} shard: {}",
-                        vgtid, gtids, config.getKeyspace(), shards);
+                        vgtid, vgtidString, config.getKeyspace(), shards);
             }
         }
         return vgtid;

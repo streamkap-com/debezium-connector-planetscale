@@ -900,6 +900,135 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
     }
 
     @Test
+    public void testVgtidIncludesLastPkDuringTableCopy() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+        int expectedSnapshotRecordsCount = 10;
+        final String tableName = "numeric_table";
+        for (int i = 1; i <= expectedSnapshotRecordsCount; i++) {
+            TestHelper.execute(INSERT_NUMERIC_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
+        }
+        String tableInclude = TEST_UNSHARDED_KEYSPACE + "." + tableName + "," + TEST_UNSHARDED_KEYSPACE + "." + tableName;
+        startConnector(Function.identity(), false, false, 1,
+                -1, -1, tableInclude, VitessConnectorConfig.SnapshotMode.INITIAL, TestHelper.TEST_SHARD);
+
+        // We should receive a record written before starting the connector.
+        consumer = testConsumer(expectedSnapshotRecordsCount);
+        consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
+        for (int i = 1; i <= expectedSnapshotRecordsCount; i++) {
+            SourceRecord record = assertRecordInserted(topicNameFromInsertStmt(INSERT_NUMERIC_TYPES_STMT), TestHelper.PK_FIELD);
+            assertSourceInfo(record, TEST_SERVER, TEST_UNSHARDED_KEYSPACE, tableName);
+            assertRecordSchemaAndValues(schemasAndValuesForNumericTypes(), record, Envelope.FieldName.AFTER);
+
+            if (i == expectedSnapshotRecordsCount) {
+                Map<String, ?> prevOffset = record.sourceOffset();
+                Map<String, ?> prevPartition = record.sourcePartition();
+                Testing.print(String.format("Offset: %s, partition: %s", prevOffset, prevPartition));
+                final String vgtidStr = (String) prevOffset.get(SourceInfo.VGTID_KEY);
+                final String expectedJSONString = "[{\"keyspace\":\"test_unsharded_keyspace\",\"shard\":\"0\"," +
+                        "\"gtid\":\"MySQL56/6a18875e-6d37-11ee-ac9a-0242ac110002:1-224\"," +
+                        "\"table_p_ks\":[{\"table_name\":\"numeric_table\",\"lastpk\":" +
+                        "{\"fields\":[{\"name\":\"id\",\"type\":\"INT64\",\"charset\":63,\"flags\":49667}]," +
+                        "\"rows\":[{\"lengths\":[\"2\"],\"values\":\"10\"}]}}]}]";
+                Vgtid actualVgtid = Vgtid.of(vgtidStr);
+                Vgtid expectedVgtid = Vgtid.of(expectedJSONString);
+                assertThat(actualVgtid.getShardGtids().size()).isEqualTo(1);
+                assertThat(actualVgtid.getShardGtids().get(0).getTableLastPrimaryKeys()).isEqualTo(
+                        expectedVgtid.getShardGtids().get(0).getTableLastPrimaryKeys());
+            }
+        }
+    }
+
+    @Test
+    public void testMidSnapshotRecoveryLargeTable() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+        int expectedSnapshotRecordsCount = 10000;
+        String rowValue = "(1, 1, 12, 12, 123, 123, 1234, 1234, 12345, 12345, 18446744073709551615, 1.5, 2.5, 12.34, true)";
+        String tableName = "numeric_table";
+        StringBuilder insertRows = new StringBuilder().append("INSERT INTO numeric_table ("
+                + "tinyint_col,"
+                + "tinyint_unsigned_col,"
+                + "smallint_col,"
+                + "smallint_unsigned_col,"
+                + "mediumint_col,"
+                + "mediumint_unsigned_col,"
+                + "int_col,"
+                + "int_unsigned_col,"
+                + "bigint_col,"
+                + "bigint_unsigned_col,"
+                + "bigint_unsigned_overflow_col,"
+                + "float_col,"
+                + "double_col,"
+                + "decimal_col,"
+                + "boolean_col)"
+                + " VALUES " + rowValue);
+        for (int i = 1; i < expectedSnapshotRecordsCount; i++) {
+            insertRows.append(", ").append(rowValue);
+        }
+
+        String insertRowsStatement = insertRows.toString();
+        TestHelper.execute(insertRowsStatement);
+
+        String tableInclude = TEST_UNSHARDED_KEYSPACE + "." + tableName;
+        startConnector(Function.identity(), false, false, 1,
+                -1, -1, tableInclude, VitessConnectorConfig.SnapshotMode.INITIAL, TestHelper.TEST_SHARD);
+
+        consumer = testConsumer(1, tableInclude);
+        consumer.await(TestHelper.waitTimeForRecords(), 0, TimeUnit.SECONDS);
+        stopConnector();
+        // Upper bound is the total size of the table so set that to prevent early termination
+        consumer = testConsumer(expectedSnapshotRecordsCount, tableInclude);
+        int recordCount = consumer.countRecords(5, TimeUnit.SECONDS);
+        // Assert snapshot is partially complete
+        assertThat(recordCount).isPositive();
+        assertThat(recordCount < expectedSnapshotRecordsCount).isTrue();
+        // Assert the total snapshot records are sent after starting
+        consumer = testConsumer(expectedSnapshotRecordsCount, tableInclude);
+        startConnector();
+        consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
+
+        for (int i = 1; i <= expectedSnapshotRecordsCount; i++) {
+            assertRecordInserted(TEST_UNSHARDED_KEYSPACE + ".numeric_table", TestHelper.PK_FIELD, Long.valueOf(i));
+        }
+        assertNoRecordsToConsume();
+    }
+
+    @Test
+    public void testResumeSnapshotOnLastPkSingleTable() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+        int totalRecordsInTable = 10;
+        for (int i = 1; i <= totalRecordsInTable; i++) {
+            TestHelper.execute(INSERT_NUMERIC_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
+        }
+        String tableInclude = TEST_UNSHARDED_KEYSPACE + "." + "numeric_table";
+        startConnector((builder) -> builder.with(
+                        VitessConnectorConfig.VGTID,
+                        "[{\"keyspace\":\"test_unsharded_keyspace\",\"shard\":\"0\"," +
+                                "\"gtid\":\"current\"," +
+                                "\"table_p_ks\":[{\"table_name\":\"numeric_table\",\"lastpk\":{\"fields\":" +
+                                "[{\"name\":\"id\",\"type\":\"INT64\",\"charset\":63,\"flags\":49667}]," +
+                                "\"rows\":[{\"lengths\":[\"1\"],\"values\":\"5\"}]}}]}]"),
+                false, false, 1,
+                -1, -1, tableInclude, VitessConnectorConfig.SnapshotMode.NEVER, TestHelper.TEST_SHARD);
+
+        // We trigger a snapshot, but the previous GTID (specified in config) has a primary key value
+        // So we only expect the total records in the table (10) minus the Primary Key value (5) = 5
+        // records in total. Primary key value indicates the last primary key streamed.
+        int expectedSnapshotRecordsCount = 5;
+        consumer = testConsumer(expectedSnapshotRecordsCount);
+        consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
+        for (int i = 1; i <= expectedSnapshotRecordsCount; i++) {
+            SourceRecord record = assertRecordInserted(topicNameFromInsertStmt(INSERT_NUMERIC_TYPES_STMT), TestHelper.PK_FIELD);
+            assertSourceInfo(record, TEST_SERVER, TEST_UNSHARDED_KEYSPACE, "numeric_table");
+            assertRecordSchemaAndValues(schemasAndValuesForNumericTypes(), record, Envelope.FieldName.AFTER);
+        }
+
+        // We should receive additional record from numeric_table
+        int expectedStreamingRecordCount = 1;
+        consumer.expects(expectedStreamingRecordCount);
+        assertInsert(INSERT_NUMERIC_TYPES_STMT, schemasAndValuesForNumericTypes(), TestHelper.PK_FIELD);
+    }
+
+    @Test
     public void testCopyNoRecordsAndReplicateTable() throws Exception {
         TestHelper.executeDDL("vitess_create_tables.ddl");
 
@@ -947,7 +1076,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         TestHelper.executeDDL("vitess_create_tables.ddl");
         TestHelper.execute(INSERT_NUMERIC_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
 
-        String tableInclude = TEST_UNSHARDED_KEYSPACE + "." + ".*_table";
+        String tableInclude = TEST_UNSHARDED_KEYSPACE + "\\." + "numeric_table";
 
         // An exception due to duplicate BEGIN events (Buffered event type: BEGIN, FIELD) shouldn't occur
         startConnector(Function.identity(), false, false, 1, -1, -1, tableInclude, null, null);
@@ -964,7 +1093,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         Boolean snapshotCompleted = (Boolean) record.sourceOffset().get(VitessOffsetContext.SNAPSHOT_COMPLETED_KEY);
         assertThat(snapshotCompleted).isTrue();
         stopConnector();
-        startConnector(Function.identity(), false, false, 1, -1, -1, null, null, null);
+        startConnector(Function.identity(), false, false, 1, -1, -1, tableInclude, null, null);
 
         // We shouldn't receive a record written before restarting the connector.
         consumer = testConsumer(expectedRecordsCount);
@@ -1123,7 +1252,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
     private void waitForGtidAcquiring(final LogInterceptor logInterceptor) {
         // The inserts must happen only after GTID to stream from is obtained
         Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
-                .until(() -> logInterceptor.containsMessage("set to the GTID [current] for keyspace"));
+                .until(() -> logInterceptor.containsMessage("set to the GTID current for keyspace"));
     }
 
     private void waitForShardedGtidAcquiring(final LogInterceptor logInterceptor) {
@@ -1263,9 +1392,13 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
     }
 
     private SourceRecord assertRecordInserted(String expectedTopicName, String pkField) {
+        return assertRecordInserted(expectedTopicName, pkField, null);
+    }
+
+    private SourceRecord assertRecordInserted(String expectedTopicName, String pkField, Object pkValue) {
         assertFalse("records not generated", consumer.isEmpty());
         SourceRecord insertedRecord = consumer.remove();
-        return assertRecordInserted(insertedRecord, expectedTopicName, pkField);
+        return assertRecordInserted(insertedRecord, expectedTopicName, pkField, pkValue);
     }
 
     private SourceRecord assertRecordRead(String expectedTopicName, String pkField) {
@@ -1287,12 +1420,19 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
     }
 
     private SourceRecord assertRecordInserted(SourceRecord insertedRecord, String expectedTopicName, String pkField) {
+        return assertRecordInserted(insertedRecord, expectedTopicName, pkField, null);
+    }
+
+    private SourceRecord assertRecordInserted(SourceRecord insertedRecord, String expectedTopicName, String pkField, Object pkValue) {
         assertEquals(topicName(expectedTopicName), insertedRecord.topic());
         if (pkField != null) {
             VitessVerifyRecord.isValidInsert(insertedRecord, pkField);
         }
         else {
             VerifyRecord.isValidInsert(insertedRecord);
+        }
+        if (pkValue != null) {
+            VitessVerifyRecord.isValidInsert(insertedRecord, pkField, pkValue);
         }
         return insertedRecord;
     }
