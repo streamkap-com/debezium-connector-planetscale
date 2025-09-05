@@ -64,7 +64,7 @@ public class TestHelper {
     private static final int VTGATE_PORT = 443; // 15991;
     // Use the same username and password for vtgate and vtctld
     private static final String USERNAME = "uwt797iy39kjeagtnjae"; //"vitess";
-    private static final String PASSWORD = "pscale_pw_gsukHok0VaMu9JFFKADEEKqOwcEfIcexffckVNhNLAr"; // "vitess_password";
+    private static final String PASSWORD = ""; // "vitess_password";
 
     protected static final String VGTID_JSON_NO_PKS_TEMPLATE = "[" +
             "{\"keyspace\":\"%s\",\"shard\":\"%s\",\"gtid\":\"%s\"}," +

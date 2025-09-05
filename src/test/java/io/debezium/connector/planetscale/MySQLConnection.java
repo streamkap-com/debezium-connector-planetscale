@@ -49,7 +49,7 @@ public class MySQLConnection extends JdbcConnection {
                 .withDefault(JdbcConfiguration.HOSTNAME, "aws.connect.psdb.cloud")
                 .withDefault(JdbcConfiguration.PORT, 3306)
                 .withDefault(JdbcConfiguration.USER, "uwt797iy39kjeagtnjae")
-                .withDefault(JdbcConfiguration.PASSWORD, "pscale_pw_gsukHok0VaMu9JFFKADEEKqOwcEfIcexffckVNhNLAr")
+                .withDefault(JdbcConfiguration.PASSWORD, "")
                 .build());
     }
 
