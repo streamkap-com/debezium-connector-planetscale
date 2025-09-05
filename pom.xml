@@ -8,9 +8,9 @@
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
-    <artifactId>debezium-connector-vitess</artifactId>
+    <artifactId>debezium-connector-planetscale</artifactId>
     <version>3.2.2-SNAPSHOT</version>
-    <name>Debezium Connector for Vitess</name>
+    <name>Debezium Connector for PlanetScale</name>
     <packaging>jar</packaging>
 
     <properties>
@@ -37,6 +37,7 @@
         <docker.filter>${docker.dbs}</docker.filter>
 
         <grpc.version>1.56.1</grpc.version>
+
         <!-- Apicurion container properties -->
         <apicurio.port>8080</apicurio.port>
         <apicurio.init.timeout>60000</apicurio.init.timeout> <!-- 60 seconds -->
@@ -214,6 +215,11 @@
             <artifactId>debezium-connector-mysql</artifactId>
             <version>${version.debezium}</version>
         </dependency>
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-connector-binlog</artifactId>
+            <version>${version.debezium}</version>
+        </dependency>
 
         <!-- Kafka-->
         <dependency>
@@ -268,6 +274,7 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
         <!-- Required for gRPC -->
         <dependency>
             <groupId>io.grpc</groupId>
@@ -319,6 +326,7 @@
             <artifactId>protobuf-java</artifactId>
             <version>3.25.3</version>
         </dependency>
+
         <!-- Building -->
         <dependency>
             <groupId>io.debezium</groupId>

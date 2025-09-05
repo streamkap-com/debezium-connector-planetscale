@@ -1,1 +1,1 @@
-io.debezium.connector.vitess.converters.VitessCloudEventsProvider
+io.debezium.connector.planetscale.converters.VitessCloudEventsProvider

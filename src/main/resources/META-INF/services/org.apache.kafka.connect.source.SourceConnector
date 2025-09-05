@@ -1,1 +1,1 @@
-io.debezium.connector.vitess.VitessConnector
+io.debezium.connector.planetscale.PlanetScaleConnector
