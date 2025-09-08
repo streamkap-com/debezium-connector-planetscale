@@ -4,12 +4,12 @@
     <parent>
         <groupId>io.debezium</groupId>
         <artifactId>debezium-parent</artifactId>
-        <version>3.2.2-SNAPSHOT</version>
+        <version>3.2.2.Final</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
     <artifactId>debezium-connector-planetscale</artifactId>
-    <version>3.2.2-SNAPSHOT</version>
+    <version>3.2.2.Final</version>
     <name>Debezium Connector for PlanetScale</name>
     <packaging>jar</packaging>
 
@@ -47,7 +47,7 @@
         <repository>
             <id>central-snapshots</id>
             <name>Maven Central Snapshots</name>
-            <url>${publish.snapshot.url}</url>
+            <url>https://central.sonatype.com/repository/maven-snapshots/</url>
             <releases>
                 <enabled>true</enabled>
                 <updatePolicy>never</updatePolicy>
