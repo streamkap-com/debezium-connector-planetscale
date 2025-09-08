@@ -36,7 +36,7 @@
         <docker.dbs>${vitess.image}</docker.dbs>
         <docker.filter>${docker.dbs}</docker.filter>
 
-        <grpc.version>1.56.1</grpc.version>
+        <grpc.version>1.75.0</grpc.version>
 
         <!-- Apicurion container properties -->
         <apicurio.port>8080</apicurio.port>

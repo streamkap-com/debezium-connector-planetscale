@@ -71,9 +71,6 @@ public class VitessConnectorTask extends BaseSourceTask<VitessPartition, VitessO
         final TopicNamingStrategy<TableId> topicNamingStrategy = connectorConfig.getTopicNamingStrategy(CommonConnectorConfig.TOPIC_NAMING_STRATEGY);
         final SchemaNameAdjuster schemaNameAdjuster = connectorConfig.schemaNameAdjuster();
 
-        // Register ServiceRegistry bean first
-        connectorConfig.getBeanRegistry().add(SERVICE_REGISTRY, connectorConfig.getServiceRegistry());
-
         // Register BinlogCharsetRegistry service provider
         connectorConfig.getServiceRegistry().registerServiceProvider(
                 new io.debezium.connector.mysql.charset.MySqlCharsetRegistryServiceProvider()

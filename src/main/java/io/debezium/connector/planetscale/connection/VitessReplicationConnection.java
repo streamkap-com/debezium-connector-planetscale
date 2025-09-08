@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,7 +122,7 @@ public class VitessReplicationConnection implements ReplicationConnection {
             for (Map.Entry<String, String> entry : grpcHeaders.entrySet()) {
                 metadata.put(Metadata.Key.of(entry.getKey(), Metadata.ASCII_STRING_MARSHALLER), entry.getValue());
             }
-            stub = MetadataUtils.attachHeaders(stub, metadata);
+            stub = stub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)); // MetadataUtils.attachHeaders(stub, metadata);
         }
 
         final Instant startedSnapshotAt;
@@ -471,7 +472,8 @@ public class VitessReplicationConnection implements ReplicationConnection {
         }
         else {
             LOGGER.info("Use TLS connection to vtgate grpc.");
-            channelBuilder = Grpc.newChannelBuilderForAddress(config.getVtgateHost(), config.getVtgatePort(), tlsChannelCredentials);
+            //channelBuilder = Grpc.newChannelBuilderForAddress(config.getVtgateHost(), config.getVtgatePort(), tlsChannelCredentials);
+            channelBuilder = NettyChannelBuilder.forAddress(config.getVtgateHost(), config.getVtgatePort(),tlsChannelCredentials);
         }
         channelBuilder = channelBuilder.defaultLoadBalancingPolicy(config.getGrpcDefaultLoadBalancingPolicy())
                 .maxInboundMessageSize(config.getGrpcMaxInboundMessageSize())
