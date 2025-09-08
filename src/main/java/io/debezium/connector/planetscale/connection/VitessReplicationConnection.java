@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -456,7 +457,7 @@ public class VitessReplicationConnection implements ReplicationConnection {
         }
         else {
             LOGGER.info("Use TLS connection to vtgate grpc.");
-            channelBuilder = Grpc.newChannelBuilderForAddress(vtgateHost, vtgatePort, tlsChannelCredentials);
+            channelBuilder = NettyChannelBuilder.forAddress(config.getVtgateHost(), config.getVtgatePort(),tlsChannelCredentials);
         }
         channelBuilder = channelBuilder.maxInboundMessageSize(maxInboundMessageSize)
                 .keepAliveTime(config.getKeepaliveInterval().toMillis(), TimeUnit.MILLISECONDS);
