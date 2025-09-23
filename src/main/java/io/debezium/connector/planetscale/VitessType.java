@@ -103,55 +103,60 @@ public class VitessType {
     // Resolve JDBC type from vstream FIELD event
     public static VitessType resolve(Query.Field field) {
         String type = field.getType().name();
-        switch (type) {
-            case "BIT":
-                return new VitessType(type, Types.BIT);
-            case "INT8":
-            case "UINT8":
-            case "INT16":
-                return new VitessType(type, Types.SMALLINT);
-            case "UINT16":
-            case "INT24":
-            case "UINT24":
-            case "INT32":
-                return new VitessType(type, Types.INTEGER);
-            case "ENUM":
-                return new VitessType(type, Types.INTEGER, resolveEnumAndSetValues(field.getColumnType()));
-            case "SET":
-                return new VitessType(type, Types.BIGINT, resolveEnumAndSetValues(field.getColumnType()));
-            case "UINT32":
-            case "INT64":
-                return new VitessType(type, Types.BIGINT);
-            case "BLOB":
-                return new VitessType(type, Types.BLOB);
-            case "VARBINARY":
-                if (field.getColumnType().toUpperCase().contains("VARCHAR")) {
+        if (field.getColumnType().toLowerCase().contains("tinyint")){
+            return new VitessType("TINYINT", Types.TINYINT);
+        }
+        else {
+            switch (type) {
+                case "BIT":
+                    return new VitessType(type, Types.BIT);
+                case "INT8":
+                case "UINT8":
+                case "INT16":
+                    return new VitessType(type, Types.SMALLINT);
+                case "UINT16":
+                case "INT24":
+                case "UINT24":
+                case "INT32":
+                    return new VitessType(type, Types.INTEGER);
+                case "ENUM":
+                    return new VitessType(type, Types.INTEGER, resolveEnumAndSetValues(field.getColumnType()));
+                case "SET":
+                    return new VitessType(type, Types.BIGINT, resolveEnumAndSetValues(field.getColumnType()));
+                case "UINT32":
+                case "INT64":
+                    return new VitessType(type, Types.BIGINT);
+                case "BLOB":
+                    return new VitessType(type, Types.BLOB);
+                case "VARBINARY":
+                    if (field.getColumnType().toUpperCase().contains("VARCHAR")) {
+                        return new VitessType(type, Types.VARCHAR);
+                    }
+                case "BINARY":
+                    return new VitessType(type, Types.BINARY);
+                case "UINT64":
+                case "VARCHAR":
+                case "CHAR":
+                case "TEXT":
+                case "JSON":
+                case "DECIMAL":
+                case "YEAR":
                     return new VitessType(type, Types.VARCHAR);
-                }
-            case "BINARY":
-                return new VitessType(type, Types.BINARY);
-            case "UINT64":
-            case "VARCHAR":
-            case "CHAR":
-            case "TEXT":
-            case "JSON":
-            case "DECIMAL":
-            case "YEAR":
-                return new VitessType(type, Types.VARCHAR);
-            case "DATE":
-                return new VitessType(type, Types.DATE);
-            case "DATETIME":
-                return new VitessType(type, Types.TIMESTAMP);
-            case "TIME":
-                return new VitessType(type, Types.TIME);
-            case "TIMESTAMP":
-                return new VitessType(type, Types.TIMESTAMP_WITH_TIMEZONE);
-            case "FLOAT32":
-                return new VitessType(type, Types.DOUBLE);
-            case "FLOAT64":
-                return new VitessType(type, Types.DOUBLE);
-            default:
-                return new VitessType(type, Types.OTHER);
+                case "DATE":
+                    return new VitessType(type, Types.DATE);
+                case "DATETIME":
+                    return new VitessType(type, Types.TIMESTAMP);
+                case "TIME":
+                    return new VitessType(type, Types.TIME);
+                case "TIMESTAMP":
+                    return new VitessType(type, Types.TIMESTAMP_WITH_TIMEZONE);
+                case "FLOAT32":
+                    return new VitessType(type, Types.DOUBLE);
+                case "FLOAT64":
+                    return new VitessType(type, Types.DOUBLE);
+                default:
+                    return new VitessType(type, Types.OTHER);
+            }
         }
     }
 

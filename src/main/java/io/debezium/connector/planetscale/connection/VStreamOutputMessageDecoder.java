@@ -500,8 +500,9 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
                         keyMetaData = KeyMetaData.IS_UNIQUE_KEY;
                     }
                     boolean optional = (field.getFlags() & NOT_NULL_FLAG) == 0;
+                    int length = field.getColumnLength();
 
-                    columns.add(new ColumnMetaData(columnName, vitessType, optional, keyMetaData));
+                    columns.add(new ColumnMetaData(columnName, vitessType, optional, keyMetaData, length));
                 }
 
                 Table table = resolveTable(shard, schemaName, tableName, columns);
@@ -522,7 +523,8 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
                     .name(columnMetaData.getColumnName())
                     .type(columnMetaData.getVitessType().getName())
                     .jdbcType(columnMetaData.getVitessType().getJdbcId())
-                    .optional(columnMetaData.isOptional());
+                    .optional(columnMetaData.isOptional())
+                    .length(columnMetaData.getLength());;
             if (columnMetaData.getVitessType().isEnum()) {
                 editor = editor.enumValues(columnMetaData.getVitessType().getEnumValues());
             }
