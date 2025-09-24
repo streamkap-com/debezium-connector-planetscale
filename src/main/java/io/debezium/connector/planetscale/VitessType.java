@@ -118,66 +118,69 @@ public class VitessType {
     // Resolve JDBC type from vstream FIELD event
     public static VitessType resolve(Query.Field field, boolean isEnumSetStringValue) {
         String type = field.getType().name();
-        switch (type) {
-            case "BIT":
-                return new VitessType(type, Types.BIT);
-            case "INT8":
-            case "UINT8":
-            case "INT16":
-                return new VitessType(type, Types.SMALLINT);
-            case "UINT16":
-            case "INT24":
-            case "UINT24":
-            case "INT32":
-            case "YEAR":
-                return new VitessType(type, Types.INTEGER);
-            case "ENUM":
-            case "SET":
-                return getEnumOrSetVitessType(isEnumSetStringValue, type, field);
-            case "UINT32":
-            case "INT64":
-                return new VitessType(type, Types.BIGINT);
-            case "BLOB":
-                if (matchAny(field, List.of("TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT"))) {
+        if (field.getColumnType().toLowerCase().contains("tinyint")){
+            return new VitessType("TINYINT", Types.TINYINT);
+        }
+        else {
+            switch (type) {
+                case "BIT":
+                    return new VitessType(type, Types.BIT);
+                case "INT8":
+                case "UINT8":
+                case "INT16":
+                    return new VitessType(type, Types.SMALLINT);
+                case "UINT16":
+                case "INT24":
+                case "UINT24":
+                case "INT32":
+                case "YEAR":
+                    return new VitessType(type, Types.INTEGER);
+                case "ENUM":
+                case "SET":
+                    return getEnumOrSetVitessType(isEnumSetStringValue, type, field);
+                case "UINT32":
+                case "INT64":
+                    return new VitessType(type, Types.BIGINT);
+                case "BLOB":
+                    if (matchAny(field, List.of("TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT"))) {
+                        return new VitessType(type, Types.VARCHAR);
+                    }
+                    return new VitessType(type, Types.BLOB);
+                case "VARBINARY":
+                    if (VitessValueConverter.matcheType(field.getColumnType().toUpperCase(), "VARCHAR")) {
+                        return new VitessType(type, Types.VARCHAR);
+                    }
+                case "BINARY":
+                    if (VitessValueConverter.matcheType(field.getColumnType().toUpperCase(), "CHAR")) {
+                        return new VitessType(type, Types.VARCHAR);
+                    } else if (VitessValueConverter.matcheType(field.getColumnType().toUpperCase(), "ENUM")) {
+                        return getEnumOrSetVitessType(isEnumSetStringValue, "ENUM", field);
+                    } else if (VitessValueConverter.matcheType(field.getColumnType().toUpperCase(), "SET")) {
+                        return getEnumOrSetVitessType(isEnumSetStringValue, "SET", field);
+                    }
+                    return new VitessType(type, Types.BINARY);
+                case "UINT64":
+                case "VARCHAR":
+                case "CHAR":
+                case "TEXT":
+                case "JSON":
+                case "DECIMAL":
                     return new VitessType(type, Types.VARCHAR);
-                }
-                return new VitessType(type, Types.BLOB);
-            case "VARBINARY":
-                if (VitessValueConverter.matcheType(field.getColumnType().toUpperCase(), "VARCHAR")) {
-                    return new VitessType(type, Types.VARCHAR);
-                }
-            case "BINARY":
-                if (VitessValueConverter.matcheType(field.getColumnType().toUpperCase(), "CHAR")) {
-                    return new VitessType(type, Types.VARCHAR);
-                }
-                else if (VitessValueConverter.matcheType(field.getColumnType().toUpperCase(), "ENUM")) {
-                    return getEnumOrSetVitessType(isEnumSetStringValue, "ENUM", field);
-                }
-                else if (VitessValueConverter.matcheType(field.getColumnType().toUpperCase(), "SET")) {
-                    return getEnumOrSetVitessType(isEnumSetStringValue, "SET", field);
-                }
-                return new VitessType(type, Types.BINARY);
-            case "UINT64":
-            case "VARCHAR":
-            case "CHAR":
-            case "TEXT":
-            case "JSON":
-            case "DECIMAL":
-                return new VitessType(type, Types.VARCHAR);
-            case "TIME":
-                return new VitessType(type, Types.TIME, field.getDecimals());
-            case "DATE":
-                return new VitessType(type, Types.DATE);
-            case "TIMESTAMP":
-                return new VitessType(type, Types.TIMESTAMP_WITH_TIMEZONE, field.getDecimals());
-            case "DATETIME":
-                return new VitessType(type, Types.TIMESTAMP, field.getDecimals());
-            case "FLOAT32":
-                return new VitessType(type, Types.DOUBLE);
-            case "FLOAT64":
-                return new VitessType(type, Types.DOUBLE);
-            default:
-                return new VitessType(type, Types.OTHER);
+                case "TIME":
+                    return new VitessType(type, Types.TIME, field.getDecimals());
+                case "DATE":
+                    return new VitessType(type, Types.DATE);
+                case "TIMESTAMP":
+                    return new VitessType(type, Types.TIMESTAMP_WITH_TIMEZONE, field.getDecimals());
+                case "DATETIME":
+                    return new VitessType(type, Types.TIMESTAMP, field.getDecimals());
+                case "FLOAT32":
+                    return new VitessType(type, Types.DOUBLE);
+                case "FLOAT64":
+                    return new VitessType(type, Types.DOUBLE);
+                default:
+                    return new VitessType(type, Types.OTHER);
+            }
         }
     }
 

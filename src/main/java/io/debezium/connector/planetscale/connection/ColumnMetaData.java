@@ -19,12 +19,14 @@ public class ColumnMetaData {
     private final VitessType vitessType;
     private final boolean optional;
     private final KeyMetaData keyMetaData;
+    private final int length;
 
-    public ColumnMetaData(String columnName, VitessType vitessType, boolean optional, KeyMetaData keyMetaData) {
+    public ColumnMetaData(String columnName, VitessType vitessType, boolean optional, KeyMetaData keyMetaData, int length) {
         this.columnName = columnName;
         this.vitessType = vitessType;
         this.keyMetaData = keyMetaData;
         this.optional = optional;
+        this.length = length;
     }
 
     public String getColumnName() {
@@ -41,5 +43,9 @@ public class ColumnMetaData {
 
     public KeyMetaData getKeyMetaData() {
         return keyMetaData;
+    }
+
+    public int getLength() {
+        return length;
     }
 }
