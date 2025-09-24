@@ -31,6 +31,8 @@ public class ReplicationMessageColumnValueResolver {
         }
 
         switch (vitessType.getJdbcId()) {
+            case Types.TINYINT:
+                return value.asShort().byteValue();
             case Types.SMALLINT:
                 return value.asShort();
             case Types.INTEGER:

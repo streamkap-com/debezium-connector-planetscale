@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import io.debezium.util.NumberConversions;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
@@ -32,6 +33,8 @@ import io.debezium.service.spi.ServiceRegistry;
 import io.debezium.time.Year;
 import io.debezium.util.Strings;
 import io.vitess.proto.Query;
+
+import static io.debezium.util.NumberConversions.SHORT_FALSE;
 
 /** Used by {@link RelationalChangeRecordEmitter} to convert Java value to Connect value */
 public class VitessValueConverter extends MySqlValueConverters {
@@ -405,5 +408,27 @@ public class VitessValueConverter extends MySqlValueConverters {
             return null;
         }
         return Timestamp.valueOf(datetimeString);
+    }
+
+    @Override
+    protected Object convertTinyInt(Column column, Field fieldDefn, Object data) {
+        return convertValue(column, fieldDefn, data, SHORT_FALSE, (r) -> {
+            if (data instanceof Short) {
+                r.deliver(data);
+            }
+            else  if (data instanceof Byte) {
+                r.deliver(data);
+            }
+            else if (data instanceof Number) {
+                Number value = (Number) data;
+                r.deliver(Short.valueOf(value.shortValue()));
+            }
+            else if (data instanceof Boolean) {
+                r.deliver(NumberConversions.getShort((Boolean) data));
+            }
+            else if (data instanceof String) {
+                r.deliver(Short.valueOf((String) data));
+            }
+        });
     }
 }
