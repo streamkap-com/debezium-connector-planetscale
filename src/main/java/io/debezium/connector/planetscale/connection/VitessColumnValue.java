@@ -78,11 +78,11 @@ public class VitessColumnValue implements ReplicationMessage.ColumnValue<byte[]>
     @Override
     public Object asDefault(VitessType vitessType, boolean includeUnknownDatatypes) {
         if (includeUnknownDatatypes) {
-            LOGGER.warn("process unknown column type {} as string", vitessType);
+            LOGGER.debug("process unknown column type {} as string", vitessType);
             return asString();
         }
         else {
-            LOGGER.warn("ignore unknown column type {}", vitessType);
+            LOGGER.debug("ignore unknown column type {}", vitessType);
             return null;
         }
     }
